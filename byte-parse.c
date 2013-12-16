@@ -195,11 +195,78 @@ struct Line * _byte_read_fixed_line_len(FILE * fp, int32_t line_len)
     return l;
 }
 
-struct Line * _byte_read_variable_line_len(FILE * fp, const char eol)
+struct SRead {
+    int32_t len;
+    char * content;
+};
+
+struct Line * _byte_read_variable_line_len(FILE * fp, const char eol, 
+        void ** saved_read)
 {
     struct Line * l = NULL;
-    int32_t lilen = 0;
+    int32_t lilen = 0, i = 0;
     char * line = NULL;
+    int found = 0, eof = 0, err = 0;
+    char buffer[BUFFER_SIZE] = { '\0' };
+    void * tmp = NULL;
+    int buffer_count = 0;
+    long file_pos = 0;
+    struct SRead * sread = NULL;
+
+    if(saved_read == NULL) return NULL;
+
+    do {
+        if(*saved_read != NULL) {
+            sread = (struct SRead *)*saved_read;
+            lilen = sread->len;
+            memcpy(buffer, sread->content, sread->len);
+            free(sread);
+            *saved_read = NULL;
+        } else {
+            lilen = fread(buffer, sizeof(char), BUFFER_SIZE, fp);
+        }
+        if(lilen > 0) {
+            for(i = 0; i < BUFFER_SIZE; i++) {
+                if(buffer[i] == eol) {
+                    found = 1;
+                    break;
+                }
+            }
+            
+            tmp = realloc(line, sizeof(char) *
+                    ((BUFFER_SIZE * buffer_count) + i + 1));
+            if(tmp != NULL) {
+                line = tmp;
+                memcpy(line + (BUFFER_SIZE * buffer_count), buffer, i + 1);
+            
+                if(feof(fp) || lilen < BUFFER_SIZE) eof = 1;
+           
+                if(found) {
+                    l = malloc(sizeof(*l));
+                    if(l != NULL) {
+                        l->content = line;
+                        l->len = (BUFFER_SIZE * buffer_count) + i;
+                    }
+                    if(lilen < BUFFER_SIZE) {
+                        sread = malloc(sizeof(*sread) + (BUFFER_SIZE - i));
+                        if(sread != NULL) {
+                            sread->content = ((char *)sread) + sizeof(*sread);
+                            sread->len = BUFFER_SIZE - i;
+                            memcpy(sread->content, &buffer[i+1], 
+                                    BUFFER_SIZE - i - 1);
+                            *saved_read = sread;
+                        }
+                    }
+                }
+
+                buffer_count++;
+            } else {
+                err = 1;
+            }
+        } else {
+            err = 1;
+        }
+    } while(!found && !eof && !err);
 
     return l;
 }
@@ -214,6 +281,7 @@ BYTEFile * byte_parse_file(const char * path, const char eol, const char field_s
     int32_t byte_count = 0;
     void * tmp = NULL;
     int eof = 0;
+    void * saved_read = NULL;
 
     fp = fopen(path, "r"); /* Not closed at the end */
     if(fp != NULL) {
@@ -226,7 +294,7 @@ BYTEFile * byte_parse_file(const char * path, const char eol, const char field_s
 
             while(!eof) {
                 if(line_len == -1) {
-                    line = _byte_read_variable_line_len(fp, eol);
+                    line = _byte_read_variable_line_len(fp, eol, &saved_read);
                     if(line == NULL) {
                         eof = 1;
                         break;
