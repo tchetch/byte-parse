@@ -232,7 +232,7 @@ BYTEFile * byte_parse_file(const char * path, const char eol, const char field_s
                         break;
                     }
                 } else {
-                    line = _byte_read_fixe_line_len(fp, line_len);
+                    line = _byte_read_fixed_line_len(fp, line_len);
                     if(line == NULL) {
                         eof = 1;
                         break;
@@ -245,7 +245,7 @@ BYTEFile * byte_parse_file(const char * path, const char eol, const char field_s
                     byte_count += line->len;
                     if(l_fields != NULL) {
                         tmp = realloc(file->records, sizeof(*(file->records)) *
-                               file->record_cound + 2);
+                               (file->record_count + 2));
                         if(tmp != NULL) {
                             file->records = (Field ***)tmp;
                             file->records[file->record_count] = l_fields;
