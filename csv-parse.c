@@ -14,18 +14,20 @@ void csv_free_fields(Field ** fields)
     if(fields == NULL) return;
 
     for(i = 0; fields[i] != NULL; i++) {
-        free(fields[i]->content);
+        if(fields[i]->content != NULL) free(fields[i]->content);
         free(fields[i]);
     }
 
     free(fields);
 }
 
-Field ** csv_parseln(const char separator, const char * line, int32_t len)
+Field ** csv_parseln(const char separator, const char * line, int32_t len, 
+        const int32_t byte, int no_copy)
 {
     Field ** fields = NULL;
     Field * new_field = NULL;
     int32_t i = 0, j = 0, buffer_count = 0, field_pos = 0, total_len = 0;
+    int32_t start = 0;
     int not_ended = 1;
     int instring = 0;
     char buffer[BUFFER_SIZE] = { '\0' };
@@ -37,26 +39,28 @@ Field ** csv_parseln(const char separator, const char * line, int32_t len)
 
         /* Grow our temp_str when buffer is full the field is not complete */
         if(j >= BUFFER_SIZE) {
-            buffer_count++;
-            tmp = realloc(temp_str, sizeof(*temp_str) * BUFFER_SIZE *
-                    buffer_count);
-            if(tmp != NULL) {
-                temp_str = tmp;
-                memcpy(temp_str + (sizeof(*temp_str) * BUFFER_SIZE *
-                            (buffer_count - 1)), buffer,
-                            sizeof(*temp_str) * BUFFER_SIZE);
-            } else {
-                csv_free_fields(fields);
-                if(temp_str != NULL) {
-                    free(temp_str);
+            if(! no_copy) {
+                buffer_count++;
+                tmp = realloc(temp_str, sizeof(*temp_str) * BUFFER_SIZE *
+                        buffer_count);
+                if(tmp != NULL) {
+                    temp_str = tmp;
+                    memcpy(temp_str + (sizeof(*temp_str) * BUFFER_SIZE *
+                                (buffer_count - 1)), buffer,
+                                sizeof(*temp_str) * BUFFER_SIZE);
+                } else {
+                    csv_free_fields(fields);
+                    if(temp_str != NULL) {
+                        free(temp_str);
+                    }
+                    temp_str = NULL;
+                    fields = NULL;
+                    goto return_fail;
                 }
-                temp_str = NULL;
-                fields = NULL;
-                goto return_fail;
+                memset(buffer, '\0', BUFFER_SIZE);
             }
             total_len += j;
             j = 0;
-            memset(buffer, '\0', BUFFER_SIZE);
         }
 
         switch(line[i]) {
@@ -67,24 +71,24 @@ Field ** csv_parseln(const char separator, const char * line, int32_t len)
                     j--;
                     if(!(j >= 0)) j = 0;
                 }
-                buffer[j] = line[i];
+                if(! no_copy) buffer[j] = line[i];
                 j++;
                 break;
             case LINE_FEED:
 separator:
                 if(instring) {
-                    buffer[j] = line[i];
+                    if(! no_copy) buffer[j] = line[i];
                     j++;
                 } else {
                     if(i > 0 && line[i] == LINE_FEED &&
                             line[i - 1] == CARRIAGE_RETURN) {
                         if(j > 0) {
                             j--;
-                            buffer[j] = '\0';
+                            if(! no_copy) buffer[j] = '\0';
                         }
                     }
 make_field:
-                    if(j > 0) {
+                    if(!no_copy && j > 0) {
                         buffer_count++;
                         tmp = realloc(temp_str, sizeof(*temp_str) * BUFFER_SIZE *
                                 buffer_count);
@@ -106,9 +110,14 @@ make_field:
 
                     new_field = malloc(sizeof(*new_field));
                     if(new_field != NULL) {
-                        new_field->content = temp_str;
+
+                        if(no_copy) new_field->content = NULL;
+                        else new_field->content = temp_str;
+                        
                         new_field->len = total_len + j;
                         new_field->pos = field_pos;
+                        new_field->at_byte = byte + start;
+                        start = i + 1;
                     } else {
                         csv_free_fields(fields);
                         free(temp_str);
@@ -131,7 +140,9 @@ make_field:
                         goto return_fail;
                     }
 
-                    memset(buffer, '\0', sizeof(buffer[0]) * BUFFER_SIZE);
+                    if(! no_copy)
+                        memset(buffer, '\0', sizeof(buffer[0]) * BUFFER_SIZE);
+
                     j = 0;
 
                     if(line[i] == LINE_FEED) not_ended = 0;
@@ -140,7 +151,7 @@ make_field:
                 break;
             default:
                 if(line[i] == separator) goto separator; /* harmful, goes up */
-                buffer[j] = line[i];
+                if(! no_copy) buffer[j] = line[i];
                 j++;
                 break;
         }
