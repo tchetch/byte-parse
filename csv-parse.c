@@ -3,7 +3,7 @@
 
 #include "csv-parse.h"
 
-#define BUFFER_SIZE         2
+#define BUFFER_SIZE         512
 #define LINE_FEED           '\n'
 #define CARRIAGE_RETURN     '\r'
 
@@ -21,18 +21,6 @@ void csv_free_fields(Field ** fields)
     free(fields);
 }
 
-char * _str_append(char * dest, char * src, int32_t a_size, int32_t c_size)
-{
-    char * new = NULL;
-
-    new = realloc(dest, sizeof(*dest) * (c_size + a_size));
-    if(new != NULL) {
-        memcpy(dest + c_size, src, a_size);
-    }
-
-    return dest;
-}
-
 Field ** csv_parseln(const char separator, const char * line, int32_t len)
 {
     Field ** fields = NULL;
@@ -47,6 +35,7 @@ Field ** csv_parseln(const char separator, const char * line, int32_t len)
 
     for(i = 0; i < len && not_ended; i++) {
 
+        /* Grow our temp_str when buffer is full the field is not complete */
         if(j >= BUFFER_SIZE) {
             buffer_count++;
             tmp = realloc(temp_str, sizeof(*temp_str) * BUFFER_SIZE *
@@ -150,15 +139,19 @@ make_field:
                 }
                 break;
             default:
-                if(line[i] == separator) goto separator;
+                if(line[i] == separator) goto separator; /* harmful, goes up */
                 buffer[j] = line[i];
                 j++;
                 break;
         }
     }
+
+    /* We reach the end without a end of line, there's still one field into
+       our buffer
+     */
     if(not_ended) {
         not_ended = 0;
-        goto make_field; /* harmful */
+        goto make_field; /* harmful, goes up */
     }
 
 return_fail:
