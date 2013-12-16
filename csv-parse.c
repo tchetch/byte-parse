@@ -1,13 +1,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "csv-parse.h"
+#include "byte-parse.h"
 
 #define BUFFER_SIZE         512
 #define LINE_FEED           '\n'
 #define CARRIAGE_RETURN     '\r'
 
-void csv_free_fields(Field ** fields)
+void byte_free_fields(Field ** fields)
 {
     int32_t i = 0;
 
@@ -21,7 +21,7 @@ void csv_free_fields(Field ** fields)
     free(fields);
 }
 
-Field ** csv_parseln(const char separator, const char * line, int32_t len, 
+Field ** byte_parseln(const char separator, const char * line, int32_t len, 
         const int32_t byte, int no_copy)
 {
     Field ** fields = NULL;
@@ -49,7 +49,7 @@ Field ** csv_parseln(const char separator, const char * line, int32_t len,
                                 (buffer_count - 1)), buffer,
                                 sizeof(*temp_str) * BUFFER_SIZE);
                 } else {
-                    csv_free_fields(fields);
+                    byte_free_fields(fields);
                     if(temp_str != NULL) {
                         free(temp_str);
                     }
@@ -98,7 +98,7 @@ make_field:
                                         (buffer_count - 1)), buffer,
                                         sizeof(*temp_str) * BUFFER_SIZE);
                         } else {
-                            csv_free_fields(fields);
+                            byte_free_fields(fields);
                             if(temp_str != NULL) {
                                 free(temp_str);
                             }
@@ -119,7 +119,7 @@ make_field:
                         new_field->at_byte = byte + start;
                         start = i + 1;
                     } else {
-                        csv_free_fields(fields);
+                        byte_free_fields(fields);
                         free(temp_str);
                         fields = NULL;
                         goto return_fail;
@@ -133,7 +133,7 @@ make_field:
                         fields[field_pos + 1] = NULL;
                         field_pos++;
                     } else {
-                        csv_free_fields(fields);
+                        byte_free_fields(fields);
                         free(new_field->content);
                         free(new_field);
                         fields = NULL;
@@ -167,4 +167,100 @@ make_field:
 
 return_fail:
     return fields;
+}
+
+struct Line {
+    char * content;
+    int32_t len;
+};
+
+struct Line * _byte_read_fixed_line_len(FILE * fp, int32_t line_len)
+{
+    struct Line * l = NULL;
+    int32_t lilen = 0;
+    char * line = NULL;
+
+    line = malloc(line_len * sizeof(char));
+    if(line != NULL) {
+        lilen = fread(line, sizeof(char), line_len, fp);
+        if(lilen == line_len) {
+            l = malloc(sizeof(*l));
+            if(l != NULL) {
+                l->content = line;
+                l->len = lilen;    
+            }
+        }
+    }
+
+    return l;
+}
+
+struct Line * _byte_read_variable_line_len(FILE * fp, const char eol)
+{
+    struct Line * l = NULL;
+    int32_t lilen = 0;
+    char * line = NULL;
+
+    return l;
+}
+
+BYTEFile * byte_parse_file(const char * path, const char eol, const char field_sep,
+       const int32_t line_len, const int ref_only)
+{
+    BYTEFile * file = NULL;
+    Field ** l_fields = NULL;
+    struct Line * line = NULL;
+    FILE * fp = NULL;
+    int32_t byte_count = 0;
+    void * tmp = NULL;
+    int eof = 0;
+
+    fp = fopen(path, "r"); /* Not closed at the end */
+    if(fp != NULL) {
+        file = malloc(sizeof(*file));
+        if(file != NULL) {
+            file->fp = fp;
+            file->record_count = 0;
+            file->ref_only = ref_only;
+            file->records = NULL;
+
+            while(!eof) {
+                if(line_len == -1) {
+                    line = _byte_read_variable_line_len(fp, eol);
+                    if(line == NULL) {
+                        eof = 1;
+                        break;
+                    }
+                } else {
+                    line = _byte_read_fixe_line_len(fp, line_len);
+                    if(line == NULL) {
+                        eof = 1;
+                        break;
+                    }
+                }
+        
+                if(line->content != NULL && line->len > 0) {
+                    l_fields = byte_parseln(field_sep, line->content, line->len,
+                            byte_count, ref_only);
+                    byte_count += line->len;
+                    if(l_fields != NULL) {
+                        tmp = realloc(file->records, sizeof(*(file->records)) *
+                               file->record_cound + 2);
+                        if(tmp != NULL) {
+                            file->records = (Field ***)tmp;
+                            file->records[file->record_count] = l_fields;
+                            file->records[file->record_count + 1] = NULL;
+                            file->record_count++;
+                        } 
+                    }
+                
+                    free(line->content);
+                    free(line);
+                    line = NULL;
+                }
+            }
+        }
+    }
+
+    return file;
 }
