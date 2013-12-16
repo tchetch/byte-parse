@@ -1,0 +1,6 @@
+byte-parse
+----------
+
+A kind of quick and dirty generic *sv (tab, comma, null, ...) parser. It can
+parse without copying data into memory if you need to parse big file.
+
