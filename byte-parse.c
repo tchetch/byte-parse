@@ -332,3 +332,20 @@ BYTEFile * byte_parse_file(const char * path, const char eol, const char field_s
 
     return file;
 }
+
+void byte_free_file(BYTEFile * file)
+{
+    int32_t i = 0;
+
+    if(file != NULL) {
+        if(file->fp != NULL) fclose(file->fp);
+
+        if(file->records != NULL) {
+            for(i = 0; file->records[i] != NULL; i++) {
+                byte_free_fields(file->records[i]);
+            }
+            free(file->records);
+        }
+        free(file);
+    }
+}
