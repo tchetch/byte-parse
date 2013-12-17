@@ -247,7 +247,7 @@ struct Line * _byte_read_variable_line_len(FILE * fp, const char eol,
                         l->content = line;
                         l->len = (BUFFER_SIZE * buffer_count) + i;
                     }
-                    if(lilen < BUFFER_SIZE) {
+                    if(i < BUFFER_SIZE) {
                         sread = malloc(sizeof(*sread) + (BUFFER_SIZE - i));
                         if(sread != NULL) {
                             sread->content = ((char *)sread) + sizeof(*sread);

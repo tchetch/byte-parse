@@ -68,6 +68,26 @@ int main(int argc, char ** argv)
     }
     byte_free_file(f);
 
+    printf("*** ASCII File test ***\n");
+    f = byte_parse_file("data/t4.txt", '\n', '\t', -1, 0);
+    if(f != NULL) {
+        for(i = 0; f->records[i] != NULL; i++) {
+            current = f->records[i];
+            for(j = 0; current != NULL && current[j] != NULL; j++) {
+                val = malloc((current[j]->len + 1) * sizeof(*val));
+                if(val != NULL) {
+                    memset(val, '\0', current[j]->len + 1);
+                    memcpy(val, current[j]->content, current[j]->len);
+                    printf("| VAL : \"%s\" |", val);
+                    free(val);
+                }
+            }
+            printf("\n");
+        }
+    }
+    byte_free_file(f);
+
+
     return 0;    
 }
 
