@@ -220,6 +220,10 @@ struct Line * _byte_read_variable_line_len(FILE * fp, const char eol,
             sread = (struct SRead *)*saved_read;
             lilen = sread->len;
             memcpy(buffer, sread->content, sread->len);
+            if(sread->len < BUFFER_SIZE) {
+                lilen = fread(buffer + sread->len, sizeof(char), 
+                        BUFFER_SIZE - sread->len, fp);
+            }
             free(sread);
             *saved_read = NULL;
         } else {
@@ -310,7 +314,7 @@ BYTEFile * byte_parse_file(const char * path, const char eol, const char field_s
                 if(line->content != NULL && line->len > 0) {
                     l_fields = byte_parseln(field_sep, line->content, line->len,
                             byte_count, ref_only);
-                    byte_count += line->len;
+                    byte_count += line->len + 1;
                     if(l_fields != NULL) {
                         tmp = realloc(file->records, sizeof(*(file->records)) *
                                (file->record_count + 2));
