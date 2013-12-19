@@ -6,87 +6,48 @@
 
 int main(int argc, char ** argv)
 {
-    Field ** current = NULL;
-    int32_t i = 0, j = 0;
-    BYTEFile * f = NULL;
-    char * val = NULL;
+    char * value = NULL;
+    long int i = 0, j = 0;
+    long int read_size = 0;
+    char buffer[BUFFER_SIZE];
+    BYTECtx parser;
 
-    printf("*** ASCII File test ***\n");
-    f = byte_parse_file("data/t1.csv", '\n', '\t', -1, 0);
-    if(f != NULL) {
-        for(i = 0; f->records[i] != NULL; i++) {
-            current = f->records[i];
-            for(j = 0; current != NULL && current[j] != NULL; j++) {
-                val = malloc((current[j]->len + 1) * sizeof(*val));
-                if(val != NULL) {
-                    memset(val, '\0', current[j]->len + 1);
-                    memcpy(val, current[j]->content, current[j]->len);
-                    printf("| VAL : \"%s\" |", val);
-                    free(val);
-                }
-            }
-            printf("\n");
-        }
-    }
-    byte_free_file(f);
-
-    printf("*** Binary File test ***\n");
-    f = byte_parse_file("data/t2.dat", 0x03, 0x00, -1, 0);
-    if(f != NULL) {
-        for(i = 0; f->records[i] != NULL; i++) {
-            current = f->records[i];
-            for(j = 0; current != NULL && current[j] != NULL; j++) {
-                val = malloc((current[j]->len + 1) * sizeof(*val));
-                if(val != NULL) {
-                    memset(val, '\0', current[j]->len + 1);
-                    memcpy(val, current[j]->content, current[j]->len);
-                    printf("| VAL : \"%s\" |", val);
-                    free(val);
-                }
-            }
-            printf("\n");
-        }
-    }
-    byte_free_file(f);
+    byte_init_ctx(&parser);
     
-    printf("*** Binary File test, fixed length ***\n");
-    f = byte_parse_file("data/t3.dat", 0x00, 0x00, 11, 0);
-    if(f != NULL) {
-        for(i = 0; f->records[i] != NULL; i++) {
-            current = f->records[i];
-            for(j = 0; current != NULL && current[j] != NULL; j++) {
-                val = malloc((current[j]->len + 1) * sizeof(*val));
-                if(val != NULL) {
-                    memset(val, '\0', current[j]->len + 1);
-                    memcpy(val, current[j]->content, current[j]->len);
-                    printf("| VAL : \"%s\" |", val);
-                    free(val);
-                }
+    byte_add_description(&parser, '\n', RECORD);
+    byte_add_description(&parser, '\t', FIELD);
+
+    if(byte_file_open(&parser, "data/t1.csv") == NO_ERROR) {
+        while(! feof(parser.file_pointer)) {
+            read_size = fread(buffer, sizeof(*buffer), BUFFER_SIZE,
+                    parser.file_pointer);
+            if(read_size > 0) {
+                if(byte_parse_block(&parser, buffer, BUFFER_SIZE) != NO_ERROR) {
+                    fprintf(stderr, "What's that sound\n");
+                } 
+            } else {
+                break;
             }
-            printf("\n");
         }
     }
-    byte_free_file(f);
 
-    printf("*** ASCII File test ***\n");
-    f = byte_parse_file("data/t4.txt", '\n', '\t', -1, 0);
-    if(f != NULL) {
-        for(i = 0; f->records[i] != NULL; i++) {
-            current = f->records[i];
-            for(j = 0; current != NULL && current[j] != NULL; j++) {
-                val = malloc((current[j]->len + 1) * sizeof(*val));
-                if(val != NULL) {
-                    memset(val, '\0', current[j]->len + 1);
-                    memcpy(val, current[j]->content, current[j]->len);
-                    printf("| VAL : \"%s\" |", val);
-                    free(val);
-                }
+    for(i = 0; i < parser.record_count; i++) {
+        for(j = 0; j < parser.records[i]->field_count; j++) {
+            value = malloc((parser.records[i]->fields[j]->content_length + 1) *
+                   sizeof(*(parser.records[i]->fields[j]->content)));
+            if(value != NULL) {
+                memset(value, '\0',
+                        (parser.records[i]->fields[j]->content_length + 1) *
+                        sizeof(*(parser.records[i]->fields[j]->content)));
+                memcpy(value, parser.records[i]->fields[j]->content,
+                        parser.records[i]->fields[j]->content_length *
+                        sizeof(*(parser.records[i]->fields[j]->content)));
+                printf("<%s> \t", value);
+                free(value);
             }
-            printf("\n");
         }
+        printf("\n");
     }
-    byte_free_file(f);
-
 
     return 0;    
 }

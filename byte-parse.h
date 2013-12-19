@@ -16,7 +16,8 @@ typedef enum {
     GENERIC_ERROR,
     BYTE_ALREADY_IN_FORMAT,
     SAME_BYTE_FIELD_AND_RECORD,
-    MEMORY_ALLOCATION
+    MEMORY_ALLOCATION,
+    FAIL_OPEN_FILE
 } ErrorCode;
 
 typedef struct {
@@ -59,6 +60,7 @@ typedef struct {
     long int byte_start;
     long int byte_count;
 
+    /* Temporary storage for fields */
     long int field_count;
     Field ** fields;
 
@@ -74,6 +76,12 @@ typedef struct {
     FILE * file_pointer;
 } BYTECtx;
 
+void byte_init_ctx(BYTECtx * ctx);
+void byte_reinit_ctx(BYTECtx * ctx);
+ErrorCode byte_add_description(BYTECtx * ctx, const char byte, const BYTEType type);
+ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
+        const long int block_length);
+ErrorCode byte_file_open(BYTECtx * ctx, const char * path);
 
 
 #endif /* BYTE_PARSE_H__ */

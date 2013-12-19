@@ -3,9 +3,6 @@
 
 #include "byte-parse.h"
 
-#define LINE_FEED           '\n'
-#define CARRIAGE_RETURN     '\r'
-
 /* Init context, context must be allocated */
 void byte_init_ctx(BYTECtx * ctx)
 {
@@ -28,7 +25,7 @@ void byte_init_ctx(BYTECtx * ctx)
         ctx->records = NULL;
 
         ctx->buffer_count = 0;
-        memset(ctx->buffer, 0, sizeof(ctx->buffer) * BUFFER_SIZE);
+        memset(ctx->buffer, 0, sizeof(*(ctx->buffer)) * BUFFER_SIZE);
 
         ctx->buffer_overflow_count = 0;
         ctx->buffer_overflow = NULL;
@@ -37,11 +34,12 @@ void byte_init_ctx(BYTECtx * ctx)
     }
 }
 
-#define _free_field(f)  do { if((f)->content != NULL) free((f)->content); } \
-    while(0)
+#define _free_field(f)  do { \
+    if((f)->content != NULL) free((f)->content); \
+} while(0)
 
 /* Free allocated memory in ctx */
-void byte_deinit_ctx(BYTECtx * ctx)
+void byte_reinit_ctx(BYTECtx * ctx)
 {
     long int i = 0, j = 0;
     if(ctx != NULL) {
@@ -61,7 +59,16 @@ void byte_deinit_ctx(BYTECtx * ctx)
         
         if(ctx->records != NULL) {
             for(i = 0; i < ctx->record_count; i++) {
+                for(j = 0; j < ctx->records[i]->field_count; j++) {
+                    _free_field(ctx->records[i]->fields[j]);
+                }
+                free(ctx->records[i]->fields);
             }
+            free(ctx->records);
+        }
+
+        if(ctx->file_pointer != NULL) {
+            fclose(ctx->file_pointer);
         }
 
         byte_init_ctx(ctx);
@@ -71,7 +78,7 @@ void byte_deinit_ctx(BYTECtx * ctx)
 /* Add a byte description for parsing
    Return !0 in case of success 0 in case of failure
  */
-ErrorCode byte_add_decription(BYTECtx * ctx, const char byte, const BYTEType type)
+ErrorCode byte_add_description(BYTECtx * ctx, const char byte, const BYTEType type)
 {
     int i = 0;
     void * tmp = NULL;
@@ -111,9 +118,18 @@ ErrorCode byte_add_decription(BYTECtx * ctx, const char byte, const BYTEType typ
     return GENERIC_ERROR;
 }
 
+#define _cleanup_buffers()    do { \
+    memset(ctx->buffer, 0, sizeof(*(ctx->buffer))); \
+    ctx->buffer_count = 0; \
+    free(ctx->buffer_overflow); \
+    ctx->buffer_overflow = NULL; \
+    ctx->buffer_overflow_count = 0; \
+} while(0)
+
 ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
         const long int block_length)
 {
+    Record * new_record = NULL;
     Field * new_field = NULL;
     ErrorCode err;
     void * ptr_tmp = NULL;
@@ -168,6 +184,7 @@ ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
                                     new_field->content = NULL;               
                                     new_field->content_length = 0;
                                 }
+
                                 new_field->real_length =
                                     ctx->byte_count - ctx->byte_start;
                                 new_field->file_position = ctx->byte_start;
@@ -183,6 +200,8 @@ ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
                                     ctx->field_count++;
                                 }
                             }
+                            done = 1;
+                            _cleanup_buffers();
                         }
                         break;
                     case RECORD:
@@ -190,23 +209,29 @@ ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
                             done = 0;
                         } else {
                             if(ctx->fields != NULL) {
-                                ptr_tmp = realloc(ctx->records,
-                                        sizeof(*(ctx->records)) * 
-                                        (ctx->record_count + 1));
-                                if(ptr_tmp == NULL) {
-                                    /* TODO i can haz moar memory ? */
-                                } else {
-                                    ctx->records = ptr_tmp;
+                                new_record = malloc(sizeof(*new_record));
+                                if(new_record != NULL) {
+                                    new_record->fields = ctx->fields;
+                                    new_record->field_count = ctx->field_count;
 
-                                    ctx->records[ctx->record_count]->fields = 
-                                        ctx->fields;
-                                    ctx->records[ctx->record_count]->field_count =
-                                        ctx->field_count;
-
-                                    ctx->record_count++;
                                     ctx->fields = NULL;
+                                    ctx->field_count = 0;
+                                    ptr_tmp = realloc(ctx->records,
+                                            sizeof(*(ctx->records)) * 
+                                            (ctx->record_count + 1));
+                                    if(ptr_tmp == NULL) {
+                                        /* TODO i can haz moar memory ? */
+                                    } else {
+                                        ctx->records = ptr_tmp;
+                                        ctx->records[ctx->record_count] =
+                                            new_record;
+                                        ctx->record_count++;
+                                    }
                                 }
                             }
+
+                            _cleanup_buffers();
+                            done = 1;
                         }
                         break;
                     case ESCAPE:
@@ -277,4 +302,17 @@ ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
     }
 
     return err;
+}
+
+ErrorCode byte_file_open(BYTECtx * ctx, const char * path)
+{
+    if(ctx != NULL && path != NULL) {
+        ctx->file_pointer = fopen(path, "r");
+        if(ctx->file_pointer != NULL) {
+            return NO_ERROR;
+        } else {
+            return FAIL_OPEN_FILE;
+        }
+    }
+    return GENERIC_ERROR;
 }
