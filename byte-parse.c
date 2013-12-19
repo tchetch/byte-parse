@@ -126,6 +126,50 @@ ErrorCode byte_add_description(BYTECtx * ctx, const char byte, const BYTEType ty
     ctx->buffer_overflow_count = 0; \
 } while(0)
 
+Field * _make_new_field(BYTECtx * ctx)
+{
+    Field * new_field = NULL;
+    void * ptr_tmp = NULL;
+
+    new_field = malloc(sizeof(*new_field));
+    if(new_field != NULL) {
+        if(ctx->copy_values) {
+            ptr_tmp = malloc(sizeof(*(ctx->buffer)) *(ctx->buffer_count +
+                        ctx->buffer_overflow_count));
+            if(ptr_tmp == NULL) {
+                /* TODO i can haz moar memory ? */
+            } else {
+                new_field->content = ptr_tmp;
+                memcpy(new_field->content, ctx->buffer_overflow, 
+                        sizeof(*(ctx->buffer)) * ctx->buffer_overflow_count);
+                memcpy(new_field->content + ctx->buffer_overflow_count,
+                        ctx->buffer, sizeof(*(ctx->buffer)) *
+                        ctx->buffer_count);
+                new_field->content_length = ctx->buffer_count +
+                    ctx->buffer_overflow_count;
+            }
+        } else {
+            new_field->content = NULL;
+            new_field->content_length = 0;
+        }
+        
+        new_field->real_length = ctx->byte_count - ctx->byte_start;
+        new_field->file_position = ctx->byte_start;
+        
+        ptr_tmp = realloc(ctx->fields, sizeof(*(ctx->fields)) *
+                (ctx->field_count + 1));
+        if(ptr_tmp == NULL) {
+            /* TODO i can haz moar memory ? */
+        } else {
+            ctx->fields = ptr_tmp;
+            ctx->fields[ctx->field_count] = new_field;
+            ctx->field_count++;
+        }
+    }
+
+    return new_field;
+}
+
 ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
         const long int block_length)
 {
@@ -157,49 +201,11 @@ ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
                         if(ctx->in_string || ctx->previous == ESCAPE) {
                             done = 0; 
                         } else {
-                            new_field = malloc(sizeof(*new_field));
-                            if(new_field != NULL) {
-                                if(ctx->copy_values) {
-                                    ptr_tmp = malloc(sizeof(*(ctx->buffer)) *
-                                            (ctx->buffer_count + 
-                                             ctx->buffer_overflow_count));
-                                    if(ptr_tmp == NULL) {
-                                        /* TODO i can haz moar memory ? */
-                                    } else {
-                                        new_field->content = ptr_tmp;
-                                        memcpy(new_field->content, 
-                                                ctx->buffer_overflow, 
-                                                sizeof(*(ctx->buffer)) *
-                                                ctx->buffer_overflow_count);
-                                        memcpy(new_field->content + 
-                                                ctx->buffer_overflow_count, 
-                                                ctx->buffer,
-                                                sizeof(*(ctx->buffer)) *
-                                                ctx->buffer_count);
-                                        new_field->content_length = 
-                                            ctx->buffer_count +
-                                            ctx->buffer_overflow_count;
-                                    }
-                                } else {
-                                    new_field->content = NULL;               
-                                    new_field->content_length = 0;
-                                }
-
-                                new_field->real_length =
-                                    ctx->byte_count - ctx->byte_start;
-                                new_field->file_position = ctx->byte_start;
-
-                                ptr_tmp = realloc(ctx->fields, 
-                                        sizeof(*(ctx->fields)) * 
-                                        (ctx->field_count + 1));
-                                if(ptr_tmp == NULL) {
-                                    /* TODO i can haz moar memory ? */
-                                } else {
-                                    ctx->fields = ptr_tmp;
-                                    ctx->fields[ctx->field_count] = new_field;
-                                    ctx->field_count++;
-                                }
+                            new_field = _make_new_field(ctx);
+                            if(new_field == NULL) {
+                                /* i can haz moar memory ? */
                             }
+
                             done = 1;
                             _cleanup_buffers();
                         }
@@ -208,6 +214,7 @@ ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
                         if(ctx->in_string || ctx->previous == ESCAPE) {
                             done = 0;
                         } else {
+                            _make_new_field(ctx);
                             if(ctx->fields != NULL) {
                                 new_record = malloc(sizeof(*new_record));
                                 if(new_record != NULL) {
