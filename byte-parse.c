@@ -3,6 +3,15 @@
 
 #include "byte-parse.h"
 
+#define _cleanup_buffers()    do { \
+    memset(ctx->buffer, 0, sizeof(*(ctx->buffer))); \
+    ctx->buffer_count = 0; \
+    if(ctx->buffer_overflow != NULL) free(ctx->buffer_overflow); \
+    ctx->buffer_overflow = NULL; \
+    ctx->buffer_overflow_count = 0; \
+} while(0)
+
+
 /* Init context, context must be allocated */
 void byte_init_ctx(BYTECtx * ctx)
 {
@@ -24,9 +33,8 @@ void byte_init_ctx(BYTECtx * ctx)
         ctx->record_count = 0;
         ctx->records = NULL;
 
-        ctx->buffer_count = 0;
-        memset(ctx->buffer, 0, sizeof(*(ctx->buffer)) * BUFFER_SIZE);
-
+        _cleanup_buffers();
+        
         ctx->buffer_overflow_count = 0;
         ctx->buffer_overflow = NULL;
 
@@ -42,6 +50,7 @@ void byte_init_ctx(BYTECtx * ctx)
 void byte_reinit_ctx(BYTECtx * ctx)
 {
     long int i = 0, j = 0;
+
     if(ctx != NULL) {
         if(ctx->format != NULL) {
             for(i = 0; i < ctx->format_count; i++) {
@@ -118,14 +127,6 @@ ErrorCode byte_add_description(BYTECtx * ctx, const char byte, const BYTEType ty
     return GENERIC_ERROR;
 }
 
-#define _cleanup_buffers()    do { \
-    memset(ctx->buffer, 0, sizeof(*(ctx->buffer))); \
-    ctx->buffer_count = 0; \
-    free(ctx->buffer_overflow); \
-    ctx->buffer_overflow = NULL; \
-    ctx->buffer_overflow_count = 0; \
-} while(0)
-
 Field * _make_new_field(BYTECtx * ctx)
 {
     Field * new_field = NULL;
@@ -184,17 +185,12 @@ ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
         
         done = 0;
 
+        if(ctx->previous == FIELD || ctx->previous == RECORD) {
+            ctx->byte_start = ctx->byte_count;
+        }
+        ctx->byte_count++;
+
         for(j = 0; j < ctx->format_count; j++) {
-            
-            ctx->byte_count++;
-
-            /* We met a record or a field so we are at the begining of a new 
-               one 
-             */
-            if(ctx->previous == FIELD || ctx->previous == RECORD) {
-                ctx->byte_start = ctx->byte_count;
-            }
-
             if(block[i] == ctx->format[j]->byte) {
                 switch(ctx->format[j]->type) {
                     case FIELD:
@@ -207,6 +203,7 @@ ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
                             }
 
                             done = 1;
+                            ctx->previous = FIELD;
                             _cleanup_buffers();
                         }
                         break;
@@ -238,6 +235,7 @@ ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
                             }
 
                             _cleanup_buffers();
+                            ctx->previous = RECORD;
                             done = 1;
                         }
                         break;
@@ -322,4 +320,47 @@ ErrorCode byte_file_open(BYTECtx * ctx, const char * path)
         }
     }
     return GENERIC_ERROR;
+}
+
+ErrorCode byte_load_field_value(BYTECtx * ctx, long int record, long int field)
+{
+    ErrorCode err = NO_ERROR;
+    Field * f = NULL;
+    Record * r = NULL;
+
+    if(ctx != NULL && record >= 0 && field >= 0) {
+        if(ctx->record_count > record) {
+            r = ctx->records[record];
+            if(r != NULL && r->field_count > field) {
+                f = r->fields[field];
+                if(f != NULL) {
+                    f->content = malloc(sizeof(*(f->content)) * f->real_length);
+                    if(f->content != NULL) {
+                        if(fseek(ctx->file_pointer, f->file_position, 
+                                    SEEK_SET) != 0) {
+                            free(f->content);
+                            f->content = NULL;
+                            err = POSITION_NOT_AVAILABLE_IN_FILE;
+                        } else {
+                            if(fread(f->content, sizeof(*(f->content)),
+                                   f->real_length, ctx->file_pointer) !=
+                                    f->real_length) {
+                                free(f->content);
+                                f->content = NULL;
+                                err = DATA_SIZE_TOO_SMALL;
+                            } else {
+                                f->content_length = f->real_length;
+                            }
+                        }
+                    }
+                }
+            }
+        } 
+    }
+
+    if(err == NO_ERROR && f != NULL && f->content != NULL) {
+        /* Clean escape char and all */
+    }
+
+    return err;
 }

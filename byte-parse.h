@@ -17,7 +17,9 @@ typedef enum {
     BYTE_ALREADY_IN_FORMAT,
     SAME_BYTE_FIELD_AND_RECORD,
     MEMORY_ALLOCATION,
-    FAIL_OPEN_FILE
+    FAIL_OPEN_FILE,
+    POSITION_NOT_AVAILABLE_IN_FILE,
+    DATA_SIZE_TOO_SMALL
 } ErrorCode;
 
 typedef struct {
@@ -76,12 +78,21 @@ typedef struct {
     FILE * file_pointer;
 } BYTECtx;
 
+#define byte_set_no_copy(ctx)   if((ctx) != NULL) { \
+    (ctx)->copy_values = 0; \
+}
+
+#define byte_unset_no_copy(ctx)   if((ctx) != NULL) { \
+    (ctx)->copy_values = 1; \
+}
+
 void byte_init_ctx(BYTECtx * ctx);
 void byte_reinit_ctx(BYTECtx * ctx);
 ErrorCode byte_add_description(BYTECtx * ctx, const char byte, const BYTEType type);
 ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
         const long int block_length);
 ErrorCode byte_file_open(BYTECtx * ctx, const char * path);
+ErrorCode byte_load_field_value(BYTECtx * ctx, long int record, long int field);
 
 
 #endif /* BYTE_PARSE_H__ */
