@@ -1,6 +1,17 @@
 byte-parse
 ----------
 
-A kind of quick and dirty generic *sv (tab, comma, null, ...) parser. It can
-parse without copying data into memory if you need to parse big file.
+Parse byte separated value. Useful to create a csv parser, a tsv parser or 
+anything that need to parse some file like
 
+  Value [0x??] Value [0x??] Value [0x??] Value [0x!!] 
+  Value [0x??] Value [0x??] Value [0x??] Value [0x!!] 
+  Value [0x??] Value [0x??] Value [0x??] Value [0x!!] 
+  Value [0x??] Value [0x??] Value [0x??] Value [0x!!]
+
+It doesn't necessary copy value into memory if you tell it not to do. It'll
+only record position in file and later load as soon as you ask it, allowing
+to parse any sized file.
+
+File format can be anything, you just need to tell it which byte has which
+meaning before running it.
