@@ -14,15 +14,18 @@ int main(int argc, char ** argv)
     BYTECtx parser;
     char * files[] = {
         "data/t1.csv",
+        "data/t5.tsv",
         NULL
     };
 
     byte_init_ctx(&parser);
-   
+  
+    memset(buffer, 0, sizeof(buffer[0]) * BUFFER_SIZE);
     for(x = 0; files[x] != NULL; x++) {
-        byte_set_no_copy(&parser);
+  //      byte_set_no_copy(&parser);
         byte_add_description(&parser, '\n', RECORD);
         byte_add_description(&parser, '\t', FIELD);
+        byte_add_description(&parser, '"', STRING);
 
         if(byte_file_open(&parser, files[x]) == NO_ERROR) {
             while(! feof(parser.file_pointer)) {

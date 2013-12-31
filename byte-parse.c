@@ -33,10 +33,9 @@ void byte_init_ctx(BYTECtx * ctx)
         ctx->record_count = 0;
         ctx->records = NULL;
 
-        _cleanup_buffers();
-        
-        ctx->buffer_overflow_count = 0;
         ctx->buffer_overflow = NULL;
+        ctx->buffer_overflow_count = 0;
+        _cleanup_buffers();
 
         ctx->file_pointer = NULL;
     }
@@ -45,6 +44,19 @@ void byte_init_ctx(BYTECtx * ctx)
 #define _free_field(f)  do { \
     if((f)->content != NULL) free((f)->content); \
 } while(0)
+
+static inline void _free_record_content(Record * r)
+{
+    long int i = 0;
+
+    if(r != NULL) {
+        for(i = 0; i < r->field_count; i++) {
+            _free_field(r->fields[i]);
+        }
+        free(r->fields);
+        r->field_count = 0;
+    }
+}
 
 /* Free allocated memory in ctx */
 void byte_reinit_ctx(BYTECtx * ctx)
@@ -68,10 +80,8 @@ void byte_reinit_ctx(BYTECtx * ctx)
         
         if(ctx->records != NULL) {
             for(i = 0; i < ctx->record_count; i++) {
-                for(j = 0; j < ctx->records[i]->field_count; j++) {
-                    _free_field(ctx->records[i]->fields[j]);
-                }
-                free(ctx->records[i]->fields);
+                _free_record_content(ctx->records[i]);
+                ctx->records[i] = NULL;
             }
             free(ctx->records);
         }
@@ -176,7 +186,7 @@ ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
 {
     Record * new_record = NULL;
     Field * new_field = NULL;
-    ErrorCode err;
+    ErrorCode err = NO_ERROR;
     void * ptr_tmp = NULL;
     long int i = 0;
     int j = 0, done = 0;;
@@ -364,3 +374,4 @@ ErrorCode byte_load_field_value(BYTECtx * ctx, long int record, long int field)
 
     return err;
 }
+
