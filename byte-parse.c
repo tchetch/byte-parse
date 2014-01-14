@@ -42,7 +42,10 @@ void byte_init_ctx(BYTECtx * ctx)
 }
 
 #define _free_field(f)  do { \
-    if((f)->content != NULL) free((f)->content); \
+    if((f)->content != NULL) { \
+        free((f)->content); \
+        (f)->content = NULL; \
+    } \
 } while(0)
 
 static inline void _free_record_content(Record * r)
@@ -52,6 +55,7 @@ static inline void _free_record_content(Record * r)
     if(r != NULL) {
         for(i = 0; i < r->field_count; i++) {
             _free_field(r->fields[i]);
+            r->fields[i] = NULL;
         }
         free(r->fields);
         r->field_count = 0;
@@ -73,9 +77,11 @@ void byte_reinit_ctx(BYTECtx * ctx)
 
         if(ctx->fields != NULL) {
             for(i = 0; i < ctx->field_count; i++) {
-                _free_field(ctx->fields[i]); 
+                _free_field(ctx->fields[i]);
+               ctx->fields[i] = NULL; 
             }
             free(ctx->fields);
+            ctx->fields = NULL;
         }
         
         if(ctx->records != NULL) {
@@ -84,6 +90,7 @@ void byte_reinit_ctx(BYTECtx * ctx)
                 ctx->records[i] = NULL;
             }
             free(ctx->records);
+            ctx->records = NULL;
         }
 
         if(ctx->file_pointer != NULL) {
@@ -181,6 +188,58 @@ Field * _make_new_field(BYTECtx * ctx)
     return new_field;
 }
 
+ErrorCode _byte_clean_content(BYTECtx * ctx, char * content, long int length)
+{
+    BYTEType previous = ANY;
+    int in_string = 0;
+    long int i = 0;
+    long int new_length = 0;
+    int j = 0;
+    
+    for(i = 0; i < length; i++) {
+        for(j = 0; j < ctx->format_count; j++) {
+            if(content[i] == ctx->format[j]->byte) {
+                switch(ctx->format[j]->type) {
+                    case ESCAPE:
+                        if(!in_string) {
+                            if(previous != ESCAPE) {
+                                new_length++;
+                            }
+                        }
+                        previous = ESCAPE;
+                        break;
+                    case STRING:
+                        if(!in_string && previous == ESCAPE) {
+                            content[new_length] = content[i];
+                            new_length++;
+                        } else {
+                            in_string = ! in_string;
+                            previous = STRING;
+                        }
+                        break;
+                    case STRING_OPEN:
+                        if(!in_string && previous == ESCAPE) {
+                            content[new_length] = content[i];
+                            new_length;
+                        } else {
+                            in_string = 1;
+                            previous = STRING_OPEN;
+                        }
+                        break;
+                    case STRING_CLOSE:
+                        if(!in_string) {
+                            content[new_length] = content[i];
+                            new_length++;
+                        } else {
+                            in_string = 0;
+                        }
+                        break;
+                }
+            }
+        }
+    }
+}
+
 ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
         const long int block_length)
 {
@@ -221,7 +280,7 @@ ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
                         if(ctx->in_string || ctx->previous == ESCAPE) {
                             done = 0;
                         } else {
-                            _make_new_field(ctx);
+                            new_field = _make_new_field(ctx);
                             if(ctx->fields != NULL) {
                                 new_record = malloc(sizeof(*new_record));
                                 if(new_record != NULL) {
@@ -370,6 +429,23 @@ ErrorCode byte_load_field_value(BYTECtx * ctx, long int record, long int field)
 
     if(err == NO_ERROR && f != NULL && f->content != NULL) {
         /* Clean escape char and all */
+    }
+
+    return err;
+}
+
+ErrorCode byte_field_to_string(Field * f, char * str, size_t len)
+{
+    ErrorCode err = GENERIC_ERROR;
+
+    if(f != NULL && str != NULL && len > 1) {
+        memset(str, 0, len);
+        if(f->content_length < len) {
+            memcpy(str, f->content, f->content_length);
+        } else {
+            memcpy(str, f->content, len - 1);
+        }
+        err = NO_ERROR;
     }
 
     return err;

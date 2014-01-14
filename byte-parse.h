@@ -93,6 +93,6 @@ ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
         const long int block_length);
 ErrorCode byte_file_open(BYTECtx * ctx, const char * path);
 ErrorCode byte_load_field_value(BYTECtx * ctx, long int record, long int field);
-
+ErrorCode byte_field_to_string(Field * f, char * str, size_t len);
 
 #endif /* BYTE_PARSE_H__ */
