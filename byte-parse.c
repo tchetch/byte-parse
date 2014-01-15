@@ -377,12 +377,14 @@ ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
             ptr_tmp = realloc(ctx->buffer_overflow, sizeof(*(ctx->buffer)) *
                 (ctx->buffer_overflow_count + ctx->buffer_count));
             if(ptr_tmp == NULL) {
+                _cleanup_buffers();
                 err = MEMORY_ALLOCATION;
             } else {
                 ctx->buffer_overflow = ptr_tmp;
                 memcpy(ctx->buffer_overflow + ctx->buffer_overflow_count,
                         ctx->buffer, ctx->buffer_count);
                 memset(ctx->buffer, 0, BUFFER_SIZE * sizeof(*(ctx->buffer)));
+                ctx->buffer_count = 0;
             }
         }
     }
