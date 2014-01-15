@@ -38,6 +38,9 @@ void byte_init_ctx(BYTECtx * ctx)
         _cleanup_buffers();
 
         ctx->file_pointer = NULL;
+
+        ctx->make_private_record = NULL;
+        ctx->priv = NULL;
     }
 }
 
@@ -286,19 +289,28 @@ ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
                                 if(new_record != NULL) {
                                     new_record->fields = ctx->fields;
                                     new_record->field_count = ctx->field_count;
-
+                                        
                                     ctx->fields = NULL;
                                     ctx->field_count = 0;
-                                    ptr_tmp = realloc(ctx->records,
-                                            sizeof(*(ctx->records)) * 
-                                            (ctx->record_count + 1));
-                                    if(ptr_tmp == NULL) {
-                                        /* TODO i can haz moar memory ? */
+
+                                    if(ctx->make_private_record == NULL) {
+                                        ptr_tmp = realloc(ctx->records,
+                                                sizeof(*(ctx->records)) * 
+                                                (ctx->record_count + 1));
+                                        if(ptr_tmp == NULL) {
+                                            /* TODO i can haz moar memory ? */
+                                        } else {
+                                            ctx->records = ptr_tmp;
+                                            ctx->records[ctx->record_count] =
+                                                new_record;
+                                            ctx->record_count++;
+                                        }
                                     } else {
-                                        ctx->records = ptr_tmp;
-                                        ctx->records[ctx->record_count] =
-                                            new_record;
-                                        ctx->record_count++;
+                                        ctx->make_private_record(new_record,
+                                                ctx->priv);
+                                        _free_record_content(new_record);
+                                        free(new_record);
+                                        new_record = NULL;
                                     }
                                 }
                             }
@@ -451,3 +463,14 @@ ErrorCode byte_field_to_string(Field * f, char * str, size_t len)
     return err;
 }
 
+ErrorCode byte_register_record_function(BYTECtx * ctx, 
+        int (*mpr)(Record * r, void *p), void * priv)
+{
+    if(ctx != NULL && mpr != NULL) {
+        ctx->make_private_record = mpr;
+        ctx->priv = priv;
+        return NO_ERROR;
+    }
+
+    return GENERIC_ERROR;
+}

@@ -76,6 +76,9 @@ typedef struct {
     char * buffer_overflow;
 
     FILE * file_pointer;
+
+    int (*make_private_record)(Record * r, void * priv);
+    void * priv;
 } BYTECtx;
 
 #define byte_set_no_copy(ctx)   if((ctx) != NULL) { \
@@ -94,5 +97,7 @@ ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
 ErrorCode byte_file_open(BYTECtx * ctx, const char * path);
 ErrorCode byte_load_field_value(BYTECtx * ctx, long int record, long int field);
 ErrorCode byte_field_to_string(Field * f, char * str, size_t len);
+ErrorCode byte_register_record_function(BYTECtx * ctx, 
+        int (*mpr)(Record * r, void *p), void * priv);
 
 #endif /* BYTE_PARSE_H__ */
