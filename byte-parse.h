@@ -89,15 +89,32 @@ typedef struct {
     (ctx)->copy_values = 1; \
 }
 
+/* Initialize context for parsing */
 void byte_init_ctx(BYTECtx * ctx);
+/* Reinitialize context for parsing, all data are deleted, file is closed */
 void byte_reinit_ctx(BYTECtx * ctx);
-ErrorCode byte_add_description(BYTECtx * ctx, const char byte, const BYTEType type);
+/* Add a description. Description tells which byte is an escape char, ending a
+   record or a field, ...
+ */
+ErrorCode byte_add_description(BYTECtx * ctx, const char byte,
+        const BYTEType type);
+/* Parse a block of data. It doesn't need to have full record or full field,
+   juste fread some data and pass to it
+ */
 ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
         const long int block_length);
+/* Open a file. */
 ErrorCode byte_file_open(BYTECtx * ctx, const char * path);
+/* DEPRECATED don't use at all */
 ErrorCode byte_load_field_value(BYTECtx * ctx, long int record, long int field);
+/* Copy a field (field are not null terminated) into a string of given size */
 ErrorCode byte_field_to_string(Field * f, char * str, size_t len);
+/* Copy a field into a string. Allocate memory and all */
 ErrorCode byte_field_to_astring(Field * f, char ** str);
+/* Instead of keeping record in byte-parse memory, give a function to be
+   used to receive each record once complete. Best way to work with 
+   big file (>1G)
+ */
 ErrorCode byte_register_record_function(BYTECtx * ctx, 
         int (*mpr)(Record * r, void *p), void * priv);
 
