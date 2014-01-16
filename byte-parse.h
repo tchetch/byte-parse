@@ -97,6 +97,7 @@ ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
 ErrorCode byte_file_open(BYTECtx * ctx, const char * path);
 ErrorCode byte_load_field_value(BYTECtx * ctx, long int record, long int field);
 ErrorCode byte_field_to_string(Field * f, char * str, size_t len);
+ErrorCode byte_field_to_astring(Field * f, char ** str);
 ErrorCode byte_register_record_function(BYTECtx * ctx, 
         int (*mpr)(Record * r, void *p), void * priv);
 

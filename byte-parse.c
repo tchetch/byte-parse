@@ -479,6 +479,21 @@ ErrorCode byte_field_to_string(Field * f, char * str, size_t len)
     return err;
 }
 
+ErrorCode byte_field_to_astring(Field * f, char ** str)
+{
+    ErrorCode err = GENERIC_ERROR;
+
+    if(f != NULL && str != NULL && f->content_length > 0) {
+        *str = calloc(f->content_length + 1, sizeof(**str));
+        if(*str != NULL) {
+            memcpy(*str, f->content, f->content_length);
+            err = NO_ERROR;
+        } 
+    }
+
+    return err;
+}
+
 ErrorCode byte_register_record_function(BYTECtx * ctx, 
         int (*mpr)(Record * r, void *p), void * priv)
 {
