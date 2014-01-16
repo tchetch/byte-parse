@@ -2,10 +2,7 @@
 #include <string.h>
 
 #include "byte-parse.h"
-
-#ifdef DEBUG_MEMORY
 #include "mem.h"
-#endif /* DEBUG_MEMORY */
 
 #define _cleanup_buffers()    do { \
     memset(ctx->buffer, 0, sizeof(*(ctx->buffer))); \
@@ -49,10 +46,11 @@ void byte_init_ctx(BYTECtx * ctx)
 }
 
 #define _free_field(f)  do { \
+    MT0((f)->content); \
     if((f)->content != NULL) { \
         free((f)->content); \
-        free((f)); (f) = NULL; \
     } \
+    free((f)); (f) = NULL; \
 } while(0)
 
 static inline void _free_record_content(Record * r)
@@ -165,6 +163,10 @@ Field * _make_new_field(BYTECtx * ctx)
         if(ctx->copy_values) {
             ptr_tmp = malloc(sizeof(*(ctx->buffer)) *(ctx->buffer_count +
                         ctx->buffer_overflow_count));
+
+            MT9(new_field);
+            MT9(ptr_tmp);
+
             if(ptr_tmp == NULL) {
                 free(new_field);
                 new_field = NULL;
@@ -427,6 +429,7 @@ ErrorCode byte_load_field_value(BYTECtx * ctx, long int record, long int field)
             r = ctx->records[record];
             if(r != NULL && r->field_count > field) {
                 f = r->fields[field];
+                MT8(r->fields[field]);
                 if(f != NULL) {
                     f->content = malloc(sizeof(*(f->content)) * f->real_length);
                     if(f->content != NULL) {

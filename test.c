@@ -22,7 +22,7 @@ int main(int argc, char ** argv)
   
     memset(buffer, 0, sizeof(buffer[0]) * BUFFER_SIZE);
     for(x = 0; files[x] != NULL; x++) {
-  //      byte_set_no_copy(&parser);
+ //       byte_set_no_copy(&parser);
         byte_add_description(&parser, '\n', RECORD);
         byte_add_description(&parser, '\t', FIELD);
         byte_add_description(&parser, '"', STRING);
@@ -44,7 +44,7 @@ int main(int argc, char ** argv)
         for(i = 0; i < parser.record_count; i++) {
             for(j = 0; j < parser.records[i]->field_count; j++) {
 
-                byte_load_field_value(&parser, i, j);
+   //             byte_load_field_value(&parser, i, j);
 
                 value = malloc((parser.records[i]->fields[j]->content_length + 1) *
                        sizeof(*(parser.records[i]->fields[j]->content)));

@@ -99,18 +99,26 @@ void tag_ptr(void * ptr, int tag)
 
 void print_alloc()
 {
+    int tagged = 0;
     struct Alloc * p = NULL;
     int i = 0;
 
     for(p = G_ALLOC; p != NULL; p = p->next) {
-        fprintf(stderr, "ALLOC : %8p ", p->ptr);
-        fprintf(stderr, "\t %4d %4d %4d\t", p->m_line, p->f_line, p->r_line);
+        tagged = 0;
         for(i = 0; i < MAX_TAG; i++) {
-            if(p->tag[i] != 0) {
-                fprintf(stderr, "[T%2d]", i);
-            }
+            if(p->tag[i] != 0) tagged = 1;
+            break;
         }
-        fprintf(stderr, "\n");
+        if(p->ptr != NULL || tagged) {
+            fprintf(stderr, "ALLOC : %8p ", p->ptr);
+            fprintf(stderr, "\t %4d %4d %4d\t", p->m_line, p->f_line, p->r_line);
+            for(i = 0; i < MAX_TAG; i++) {
+                if(p->tag[i] != 0) {
+                    fprintf(stderr, "[T%2d]", i);
+                }
+            }
+            fprintf(stderr, "\n");
+        }
     }
 }
 
