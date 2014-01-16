@@ -3,6 +3,10 @@
 
 #include "byte-parse.h"
 
+#ifdef DEBUG_MEMORY
+#include "mem.h"
+#endif /* DEBUG_MEMORY */
+
 #define _cleanup_buffers()    do { \
     memset(ctx->buffer, 0, sizeof(*(ctx->buffer))); \
     ctx->buffer_count = 0; \
@@ -47,7 +51,7 @@ void byte_init_ctx(BYTECtx * ctx)
 #define _free_field(f)  do { \
     if((f)->content != NULL) { \
         free((f)->content); \
-        (f)->content = NULL; \
+        free((f)); (f) = NULL; \
     } \
 } while(0)
 
@@ -61,6 +65,7 @@ static inline void _free_record_content(Record * r)
             r->fields[i] = NULL;
         }
         free(r->fields);
+        r->fields = NULL;
         r->field_count = 0;
     }
 }
@@ -90,6 +95,7 @@ void byte_reinit_ctx(BYTECtx * ctx)
         if(ctx->records != NULL) {
             for(i = 0; i < ctx->record_count; i++) {
                 _free_record_content(ctx->records[i]);
+                free(ctx->records[i]);
                 ctx->records[i] = NULL;
             }
             free(ctx->records);
@@ -101,6 +107,8 @@ void byte_reinit_ctx(BYTECtx * ctx)
         }
 
         byte_init_ctx(ctx);
+
+        print_alloc();
     }
 }
 
@@ -158,7 +166,8 @@ Field * _make_new_field(BYTECtx * ctx)
             ptr_tmp = malloc(sizeof(*(ctx->buffer)) *(ctx->buffer_count +
                         ctx->buffer_overflow_count));
             if(ptr_tmp == NULL) {
-                /* TODO i can haz moar memory ? */
+                free(new_field);
+                new_field = NULL;
             } else {
                 new_field->content = ptr_tmp;
                 memcpy(new_field->content, ctx->buffer_overflow, 
@@ -180,7 +189,9 @@ Field * _make_new_field(BYTECtx * ctx)
         ptr_tmp = realloc(ctx->fields, sizeof(*(ctx->fields)) *
                 (ctx->field_count + 1));
         if(ptr_tmp == NULL) {
-            /* TODO i can haz moar memory ? */
+            if(new_field->content != NULL) free(new_field->content);
+            free(new_field);
+            new_field = NULL;
         } else {
             ctx->fields = ptr_tmp;
             ctx->fields[ctx->field_count] = new_field;
