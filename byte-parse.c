@@ -386,7 +386,7 @@ ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
         /* Now if we have reach our buffer limit, grow buffer_overflow and copy
            the whole buffer into it
          */
-        if(ctx->buffer_count >= BUFFER_SIZE) {
+        if(ctx->buffer_count >= BP_BUFFER_SIZE) {
             ptr_tmp = realloc(ctx->buffer_overflow, sizeof(*(ctx->buffer)) *
                 (ctx->buffer_overflow_count + ctx->buffer_count));
             if(ptr_tmp == NULL) {
@@ -396,7 +396,7 @@ ErrorCode byte_parse_block(BYTECtx * ctx, const char * block,
                 ctx->buffer_overflow = ptr_tmp;
                 memcpy(ctx->buffer_overflow + ctx->buffer_overflow_count,
                         ctx->buffer, ctx->buffer_count);
-                memset(ctx->buffer, 0, BUFFER_SIZE * sizeof(*(ctx->buffer)));
+                memset(ctx->buffer, 0, BP_BUFFER_SIZE * sizeof(*(ctx->buffer)));
                 ctx->buffer_count = 0;
             }
         }

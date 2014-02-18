@@ -3,7 +3,10 @@
 
 #include <stdio.h>
 
-#define BUFFER_SIZE     512
+#ifndef BP_BUFFER_SIZE
+#define BP_BUFFER_SIZE     512
+#endif 
+
 /* byte-parse API
    --------------
 
@@ -70,7 +73,7 @@ typedef struct {
     Record ** records;
 
     long int buffer_count;
-    char buffer[BUFFER_SIZE];
+    char buffer[BP_BUFFER_SIZE];
     
     long int buffer_overflow_count;
     char * buffer_overflow;
